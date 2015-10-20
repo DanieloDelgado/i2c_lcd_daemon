@@ -11,9 +11,18 @@
 #include <sys/ioctl.h>
 #include <syslog.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #define BAD_SOCKET(s)	((s) == -1)
 #define CLIENTS 5
+
+char *socket_file = NULL;
+
+static void signalhandler(int sig, siginfo_t *siginfo, void *context)
+{
+	unlink(socket_file);
+	exit(0);
+}
 
 int send_string(char *i2cdev, char *text)
 {
@@ -103,9 +112,16 @@ int main(int argc, char *argv[]){
 	int i2cbus = 1;
 	pid_t pid = getpid();
 	bool daemonize = false;
-	char *socket_file = NULL;
 	int option;
     char i2cdev[15];
+
+    struct sigaction action;
+    action.sa_sigaction = &signalhandler;
+    action.sa_flags = SA_SIGINFO;
+	if (sigaction(SIGTERM, &action, NULL) < 0) {
+		perror ("sigaction");
+		return 1;
+    }
     
 	while ((option = getopt(argc, argv, "b:df:h?")) != -1){
 		switch (option){
